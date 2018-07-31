@@ -36,7 +36,8 @@ namespace BlockchainReader
             {
                 using (FileStream fs = new FileStream(path_acc, FileMode.Open, FileAccess.Read, FileShare.None))
                 {
-                    ImportBlocks(fs, specified_height);
+                    //ImportBlocksAndSearchNEO(fs, specified_height);
+                    ImportBlocksAndSearchNEP5(fs, specified_height);
                 }
             }
             else
@@ -45,17 +46,16 @@ namespace BlockchainReader
             }
         }
 
-        private static void ImportBlocks(Stream stream, int specified_block_height)
+        private static void ImportBlocksAndSearchNEO(Stream stream, int specified_block_height)
         {
             long start_tick = DateTime.Now.Ticks;
             int tx_count = 0;
             //Dictionary<TransactionType, int> types = new Dictionary<TransactionType, int>();
             //Dictionary<TransactionType, int> typesWithOutput = new Dictionary<TransactionType, int>();
             //Dictionary<TransactionType, int> typesWithOutputNEO = new Dictionary<TransactionType, int>();
-            //UInt256 dup_tx_id = UInt256.Parse("0xd46e2df37f43fe3d1dd6f2bb0fddfac3c1821a22215df3df31050cf4f482001c");
             //LevelDBBlockchain blockchain = (LevelDBBlockchain)Blockchain.Default;
 
-            NeoAnalyst analyst = new NeoMemAnalyst();
+            INeoAnalyst analyst = new NeoMemAnalyst();
 
             using (BinaryReader r = new BinaryReader(stream))
             {
@@ -78,7 +78,7 @@ namespace BlockchainReader
                     Block block = array.AsSerializable<Block>();
                     tx_count += block.Transactions.Length;
                     int tx_order = 0;
-                    foreach(Transaction tx in block.Transactions)
+                    foreach (Transaction tx in block.Transactions)
                     {
                         Fixed8 sumOfInput = Fixed8.Zero;
                         foreach (CoinReference input in tx.Inputs)
@@ -102,7 +102,7 @@ namespace BlockchainReader
                             }
                         }
 
-                        if (sumOfInput!=sumOfOutput && tx.Type != TransactionType.IssueTransaction)
+                        if (sumOfInput != sumOfOutput && tx.Type != TransactionType.IssueTransaction)
                         {
                             Console.WriteLine("Unbalanced block height {0}, tx order {1} type {2}, input {3}, output {4},\n\ttx {5}", height, tx_order, tx.Type, sumOfInput, sumOfOutput, tx.Hash);
                             Console.WriteLine("-------- Inputs ----------");
@@ -127,63 +127,13 @@ namespace BlockchainReader
 
                         }
 
-                        //if (tx.Hash.Equals(dup_tx_id))
-                        //{
-                        //    Console.WriteLine("Block height : {0}, tx order : {1}", height, tx_order);
-                        //    Console.WriteLine("tx type {0}, version {1}, length {2}", tx.Type, tx.Version, tx.Size);
-                        //    var hex = Helper.ToHexString(tx);
-                        //    Console.WriteLine(hex);
-                        //}
-                        //if (types.ContainsKey(tx.Type))
-                        //{
-                        //    types[tx.Type] = types[tx.Type] + 1;
-                        //}
-                        //else
-                        //{
-                        //    types[tx.Type] = 1;
-                        //}
-                        //if (tx.Outputs.Length > 0)
-                        //{
-                        //    if (typesWithOutput.ContainsKey(tx.Type))
-                        //    {
-                        //        typesWithOutput[tx.Type] = typesWithOutput[tx.Type] + 1;
-                        //    }
-                        //    else
-                        //    {
-                        //        typesWithOutput[tx.Type] = 1;
-                        //    }
-                        //    foreach (TransactionOutput to in tx.Outputs)
-                        //    {
-                        //        if (to.AssetId.Equals(Blockchain.GoverningToken.Hash))
-                        //        {
-                        //            if (typesWithOutputNEO.ContainsKey(tx.Type))
-                        //            {
-                        //                typesWithOutputNEO[tx.Type] = typesWithOutputNEO[tx.Type] + 1;
-                        //            }
-                        //            else
-                        //            {
-                        //                typesWithOutputNEO[tx.Type] = 1;
-                        //            }
-                        //            //if (tx.Type == TransactionType.InvocationTransaction)
-                        //            //{
-                        //            //    Console.WriteLine("{0}", tx.Hash);
-                        //            //    foreach (CoinReference input in tx.Inputs)
-                        //            //    {
-                        //            //        Console.WriteLine("{0} : {1}", input.PrevHash, input.PrevIndex);
-                        //            //    }
-                        //            //    //goto Exit;
-                        //            //}
-                        //        }
-                        //    }
-                        //}
                         tx_order++;
                     }
-                    //blockchain.AddBlockDirectly(block);
                     if (height % 1000 == 0)
                     {
                         double progress = height * 100.0 / (specified_block_height + 1);
                         Console.WriteLine("{0:F2}% : block {1} size {2}", progress, height, block_length);
-                        
+
                     }
                 }
             }
@@ -201,31 +151,16 @@ namespace BlockchainReader
                 }
             }
 
-            export(balanceDictionary);
+            Export(balanceDictionary);
 
             long stop_tick = DateTime.Now.Ticks;
             long cost = stop_tick - start_tick;
             long seconds = cost / 10000000;
             Console.WriteLine("{0} seconds", seconds);
-            //Console.WriteLine("{0} transactions", tx_count);
-            //foreach (TransactionType tt in types.Keys)
-            //{
-            //    Console.WriteLine("{0} : {1}", tt, types[tt]);
-            //}
-            //Console.WriteLine("----------------------------------");
-            //foreach (TransactionType tt in typesWithOutput.Keys)
-            //{
-            //    Console.WriteLine("{0} : {1}", tt, typesWithOutput[tt]);
-            //}
-            //Console.WriteLine("----------------------------------");
-            //foreach (TransactionType tt in typesWithOutputNEO.Keys)
-            //{
-            //    Console.WriteLine("{0} : {1}", tt, typesWithOutputNEO[tt]);
-            //}
             Console.WriteLine("...");
         }
 
-        private static void export(Dictionary<UInt160, Fixed8> balanceDictionary)
+        private static void Export(Dictionary<UInt160, Fixed8> balanceDictionary)
         {
             Console.WriteLine("{0} wallets.", balanceDictionary.Keys.Count);
             File.Delete("address_list.csv");
@@ -236,6 +171,66 @@ namespace BlockchainReader
                 //Console.WriteLine("{0},{1}", key, balanceDictionary[key]);
             }
             sw.Close();
+        }
+
+        private static void ImportBlocksAndSearchNEP5(Stream stream, int specified_block_height)
+        {
+            long start_tick = DateTime.Now.Ticks;
+            int tx_count = 0;
+            //Dictionary<TransactionType, int> types = new Dictionary<TransactionType, int>();
+            //Dictionary<TransactionType, int> typesWithOutput = new Dictionary<TransactionType, int>();
+            //Dictionary<TransactionType, int> typesWithOutputNEO = new Dictionary<TransactionType, int>();
+            //LevelDBBlockchain blockchain = (LevelDBBlockchain)Blockchain.Default;
+
+            INeoAnalyst analyst = new NeoMemAnalyst();
+
+            using (BinaryReader r = new BinaryReader(stream))
+            {
+                uint start = 0;
+                uint count = r.ReadUInt32();
+                uint end = start + count - 1;
+
+                if (specified_block_height > end)
+                {
+                    Console.WriteLine("Specified block height({0}) is larger than the height({1}) of chain.acc.", specified_block_height, end);
+                    return;
+                }
+
+                Console.WriteLine("total blocks in chain.acc : {0}", count);
+                Console.WriteLine("========================================================");
+
+                for (uint height = start; height <= specified_block_height; height++)
+                {
+                    int block_length = r.ReadInt32();
+                    byte[] array = r.ReadBytes(block_length);
+                    if (height < specified_block_height)
+                    {
+                        continue;
+                    }
+                    Block block = array.AsSerializable<Block>();
+                    tx_count += block.Transactions.Length;
+                    int tx_order = 0;
+                    foreach (Transaction tx in block.Transactions)
+                    {
+                        Console.WriteLine(tx.GetType().Name);
+                        Console.WriteLine(tx.Hash);
+                        if (tx.Hash.ToString() == "0xce08c478f99ed43d238654d3e5309cff354a5fa2507f6d1d6ac5bfeda8553db6")
+                        {
+                            InvocationTransaction it = (InvocationTransaction)tx;
+                            Console.WriteLine(it.ToJson().ToString());
+                        }
+
+                        tx_order++;
+                        Console.WriteLine("-------------------------------------------------------");
+                    }
+                    if (height % 1000 == 0)
+                    {
+                        double progress = height * 100.0 / (specified_block_height + 1);
+                        Console.WriteLine("{0:F2}% : block {1} size {2}", progress, height, block_length);
+
+                    }
+                }
+            }
         }
     }
 }

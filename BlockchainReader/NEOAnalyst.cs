@@ -47,7 +47,7 @@ namespace BlockchainReader
         }
     }
 
-    interface NeoAnalyst
+    interface INeoAnalyst
     {
         void Add(UInt256 hash, UInt16 index, Fixed8 value, UInt160 address);
         AddressPair Remove(UInt256 hash, UInt16 index);
@@ -55,7 +55,7 @@ namespace BlockchainReader
         IEnumerable<AddressPair> AsEnumerable();
     }
 
-    class NeoMemAnalyst : NeoAnalyst
+    class NeoMemAnalyst : INeoAnalyst
     {
         Dictionary<IndexPair, AddressPair> entries = new Dictionary<IndexPair, AddressPair>();
 
